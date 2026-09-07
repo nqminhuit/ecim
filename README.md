@@ -1,5 +1,7 @@
 # ECIM — Emacs CI Manager
 
+[![CI](https://github.com/nqminhuit/ecim/actions/workflows/ci.yml/badge.svg)](https://github.com/nqminhuit/ecim/actions/workflows/ci.yml)
+
 ## Goal
 
 ECIM is an Emacs-native interface for managing CI/CD workflows from within Emacs.
@@ -248,10 +250,11 @@ All ten are implemented.
 ## Development
 
 ```sh
-make compile   # byte-compile; warnings are the lint that matters for Emacs Lisp
-make test      # ERT suite, no network access
-make lint      # checkdoc
-make           # compile + test
+make compile        # byte-compile; warnings are the lint that matters for Emacs Lisp
+make compile-strict # the same, but a warning fails the build
+make test           # ERT suite, no network access
+make lint           # checkdoc; any finding fails the build
+make                # compile + test
 
 # A single test, or a regexp selecting several
 emacs -Q --batch -L . -L test -l ert -l test/ecim-tests.el \
@@ -260,3 +263,8 @@ emacs -Q --batch -L . -L test -l ert -l test/ecim-tests.el \
 
 The tests never touch the network: stub `ecim-github--fetch` rather than adding a test that needs
 credentials.
+
+`.github/workflows/ci.yml` runs `compile` and `test` across Emacs 27.2 to 30.1 — which is what
+actually checks the Emacs 27.1 floor claimed in the package headers — and enforces `compile-strict`
+and `lint` on one version, since older byte-compilers warn about different things. It can also be
+run by hand, which is a convenient way to exercise ECIM against its own CI.
