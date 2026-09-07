@@ -216,7 +216,6 @@ With a prefix argument FAILED-ONLY, rerun only its failed jobs."
                 (ecim--duration (ecim-job-started-at job) (ecim-job-completed-at job))
                 (ecim--relative-time (ecim-job-started-at job)))))
 
-;;;###autoload
 (defun ecim-jobs--load (buffer repo run)
   "Fill BUFFER with the jobs of RUN in REPO."
   (ecim--set-loading buffer t)

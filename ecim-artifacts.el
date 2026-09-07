@@ -71,7 +71,6 @@
                 (find-file file)))))
          (ecim--errback buffer))))))
 
-;;;###autoload
 (defun ecim-artifacts--load (buffer repo run)
   "Fill BUFFER with the artifacts of RUN in REPO."
   (ecim--set-loading buffer t)
