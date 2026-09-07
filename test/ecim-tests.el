@@ -82,6 +82,50 @@ belongs to the organisation 123 and has no port."
   (should-not (ecim-repository--parse-remote ""))
   (should-not (ecim-repository--parse-remote nil)))
 
+;;;; Loading
+;;
+;; These must run in a fresh Emacs: the rest of the suite requires
+;; ecim-github itself, which would hide exactly the bug being tested.
+
+(defconst ecim-tests--root
+  (file-name-directory (or (locate-library "ecim-core") default-directory))
+  "Directory the package is loaded from.")
+
+(defun ecim-tests--in-fresh-emacs (form)
+  "Evaluate FORM in a bare batch Emacs and return its exit status."
+  (call-process (expand-file-name invocation-name invocation-directory)
+                nil nil nil "-Q" "--batch" "-L" ecim-tests--root
+                "--eval" (prin1-to-string form)))
+
+(ert-deftest ecim-entry-points-load-a-provider-implementation ()
+  "`M-x ecim' autoloads the views, not the package as a whole.
+The views require the provider interface but no implementation, so
+selecting a provider has to pull one in; otherwise the generics
+dispatch with no applicable method and the dashboard dies on its
+first request."
+  (should
+   (eq 0 (ecim-tests--in-fresh-emacs
+          '(progn
+             ;; Exactly what the autoload of `ecim-runs' loads.
+             (require 'ecim-runs)
+             (let ((repo (ecim-repo-create :root "/tmp/r/" :host "github.com"
+                                           :owner "o" :name "r")))
+               (unless (eq 'github (ecim-provider-for-repo repo))
+                 (kill-emacs 3))
+               (unless (featurep 'ecim-github)
+                 (kill-emacs 4))
+               ;; The real symptom: a generic with nothing to dispatch to.
+               (unless (cl-find-method #'ecim-provider-list-runs nil
+                                       (list '(eql github) t t t))
+                 (kill-emacs 5)))
+             (kill-emacs 0))))))
+
+(ert-deftest ecim-every-file-is-loadable-on-its-own ()
+  "Each file must pull in what it uses, so load order cannot matter."
+  (dolist (feature '(ecim-core ecim-repository ecim-auth ecim-provider
+                     ecim-github ecim-ui ecim-logs ecim-artifacts ecim-runs ecim))
+    (should (eq 0 (ecim-tests--in-fresh-emacs `(require ',feature))))))
+
 ;;;; Authentication
 
 (defmacro ecim-tests--with-remote (url &rest body)

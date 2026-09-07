@@ -22,10 +22,14 @@ Add GitHub Enterprise hostnames here."
   :group 'ecim)
 
 (defun ecim-provider-for-repo (repo)
-  "Return the provider symbol handling REPO."
+  "Return the provider symbol handling REPO, loading its methods.
+Selecting a provider is also the moment to make sure it exists: the
+entry points autoload the views, which require this interface but
+not any implementation, so without the `require' below the generics
+would dispatch with no applicable method."
   (let ((host (ecim-repo-host repo)))
     (if (member host ecim-github-hosts)
-        'github
+        (progn (require 'ecim-github) 'github)
       (signal 'ecim-error
               (list (format "No ECIM provider knows how to talk to %s" host))))))
 
