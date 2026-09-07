@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [master]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -10,12 +10,11 @@ on:
         description: 'Emacs version to test against'
         required: true
         type: choice
-        default: '30.1'
+        default: '31.1'
         options:
-          - '27.2'
-          - '28.2'
           - '29.4'
-          - '30.1'
+          - '30.2'
+          - '31.1'
           - snapshot
       strict:
         description: 'Fail on byte-compiler warnings and checkdoc findings'
@@ -33,7 +32,7 @@ jobs:
         # A manual run tests only the version asked for.  Everything else
         # runs the whole matrix, which is what actually checks the Emacs
         # 27.1 floor the package headers claim.
-        emacs: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', github.event.inputs.emacs-version) || '["27.2","28.2","29.4","30.1"]') }}
+        emacs: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', github.event.inputs.emacs-version) || '["29.4","30.2","31.1"]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: purcell/setup-emacs@master
@@ -53,7 +52,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: purcell/setup-emacs@master
         with:
-          version: '30.1'
+          version: '31.1'
       # Only one version enforces these: older byte-compilers warn about
       # different things, which would make the matrix red for reasons
       # that are not defects.
