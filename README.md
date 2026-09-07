@@ -20,19 +20,76 @@ The first implementation should focus on **GitHub Actions**, allowing users to:
 
 The UI should feel native to Emacs rather than simply wrapping the GitHub web interface.
 
+## Requirements
+
+ECIM needs Emacs 27.1 or later and nothing else: no external packages, and no command line tools.
+
+Two conditions must hold, and ECIM reports each as an authentication error rather than failing
+obscurely in the middle of a request:
+
+* **The repository must be cloned over HTTPS**, with a token in the remote URL
+  (`https://<token>@github.com/owner/repo.git`, or `https://<user>:<token>@…`). An SSH remote
+  carries no API credential, so an SSH clone works only if a token is supplied through `auth-source`
+  instead.
+* **The token must be allowed to read Actions** — the `workflow` scope on a classic token, or the
+  Actions permission on a fine-grained one. A token created only for pushing will authenticate
+  successfully and then be refused by every Actions endpoint; ECIM reports that as a missing
+  permission rather than a bare "Forbidden".
+
+## Usage
+
+```elisp
+(add-to-list 'load-path "/path/to/ecim")
+(require 'ecim)
+```
+
+`M-x ecim` inside a repository opens the run dashboard:
+
+```text
+RET  jobs of the run          l  job log
+a    artifacts                R  run a workflow
+c    cancel                   G  rerun (C-u: failed jobs only)
+W    workflows                /  filter by branch
+g    refresh                  w  open in a browser
+```
+
+Useful settings: `ecim-auto-refresh-interval` (off by default; when set, a buffer refreshes itself
+only while something in it is still running), `ecim-artifact-directory`, `ecim-runs-limit`,
+`ecim-logs-strip-timestamps`.
+
 ## Repository and Account Detection
 
-ECIM should determine the current repository from the current working directory / Git repository.
+ECIM determines the current repository from the current working directory / Git repository.
 
-It should also determine which GitHub account/identity should be used for that repository.
+It also determines which GitHub account/identity is used for that repository.
 
-This is important because users may have multiple GitHub accounts, such as personal and work accounts.
+This matters because users may have multiple GitHub accounts, such as personal and work accounts.
 
-The account/authentication design should be **repository-aware**, rather than relying on one globally active GitHub account.
+The authentication design is **repository-aware** rather than relying on one globally active GitHub
+account, and it achieves that through the repository itself: the token in a clone's own remote URL
+belongs to that clone, so a personal checkout and a work checkout carry different credentials with
+no further configuration.
 
-Do not assume that Git SSH authentication and GitHub API authentication are the same thing. Treat Git remote detection and API authentication as separate concerns.
+Repository detection and credential reading are nevertheless separate steps. Detection parses the
+remote for host, owner and name only, and discards any credential in it, because the result is
+cached, passed around and displayed. The token is read separately, on demand, and never stored in
+those structures.
 
-Authentication should be designed so that it can support multiple accounts cleanly, preferably using Emacs facilities such as `auth-source` and/or repository-local configuration.
+The lookup order is:
+
+1. `auth-source` for the login configured for the repository — `ecim.account` in the Git config, or
+   the `ecim-account` directory-local variable. Naming a login is an explicit choice, so it wins.
+2. The token embedded in the HTTPS remote URL.
+3. `auth-source` for the API host, then the web host.
+
+`auth-source` is therefore optional, and exists so that a token need not be kept in plain text in
+`.git/config`; an entry looks like:
+
+```text
+machine api.github.com login <your-login> password <your-token>
+```
+
+`M-x ecim-auth-forget` discards cached credentials so they are looked up again.
 
 ## Architecture
 
@@ -173,7 +230,7 @@ Start with a clean project structure and a minimal working implementation. Expla
 
 ## First Milestone
 
-The first milestone should be a working GitHub Actions implementation that can:
+The first milestone is a working GitHub Actions implementation that can:
 
 1. Detect the current Git repository
 2. Authenticate to GitHub
@@ -185,3 +242,21 @@ The first milestone should be a working GitHub Actions implementation that can:
 8. List/download artifacts
 9. Trigger a workflow
 10. Refresh/poll run status
+
+All ten are implemented.
+
+## Development
+
+```sh
+make compile   # byte-compile; warnings are the lint that matters for Emacs Lisp
+make test      # ERT suite, no network access
+make lint      # checkdoc
+make           # compile + test
+
+# A single test, or a regexp selecting several
+emacs -Q --batch -L . -L test -l ert -l test/ecim-tests.el \
+  --eval '(ert-run-tests-batch-and-exit "parse-remote")'
+```
+
+The tests never touch the network: stub `ecim-github--fetch` rather than adding a test that needs
+credentials.
