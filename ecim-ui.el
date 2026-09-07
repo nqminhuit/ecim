@@ -48,11 +48,19 @@ fit their data instead of always truncating to a fixed width.")
 Captured once, so each fill computes widths from the same
 baseline rather than compounding onto an already-widened one.")
 
+(defvar-local ecim--user-sized-columns nil
+  "Names of columns the user has resized by hand with `{' or `}'.
+`ecim--size-columns' leaves these at their current width instead
+of recomputing them, so a manual resize survives the next refresh
+rather than being silently undone by it.")
+
 (defvar ecim-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'ecim-refresh)
     (define-key map (kbd "w") #'ecim-browse)
     (define-key map (kbd "q") #'quit-window)
+    (define-key map (kbd "{") #'ecim-narrow-column)
+    (define-key map (kbd "}") #'ecim-widen-column)
     map)
   "Keymap shared by all ECIM listings.")
 
@@ -102,6 +110,23 @@ for the sortable column names."
         (browse-url url)
       (user-error "This entry has no web page"))))
 
+(defun ecim-widen-column (&optional n)
+  "Widen the column at point by N characters, and remember the choice.
+Wraps `tabulated-list-widen-current-column'; once a column is
+resized this way, `ecim--size-columns' leaves it alone on later
+refreshes instead of fitting it to the data again."
+  (interactive "p")
+  (let ((name (get-text-property (point) 'tabulated-list-column-name)))
+    (tabulated-list-widen-current-column n)
+    (when (and name (not (member name ecim--user-sized-columns)))
+      (push name ecim--user-sized-columns))))
+
+(defun ecim-narrow-column (&optional n)
+  "Narrow the column at point by N characters.
+See `ecim-widen-column'."
+  (interactive "p")
+  (ecim-widen-column (- n)))
+
 ;;;; Buffers
 
 (defun ecim--buffer-name (kind repo &optional detail)
@@ -131,20 +156,29 @@ cell among ENTRIES, capped by the matching element of
 `ecim--column-caps'.  A column with no cap set still cannot grow
 past a cell that overflows it: `tabulated-list-print-col' truncates
 with an ellipsis on its own, so a cap only guards against one huge
-entry stretching the whole table for everyone else's sake."
+entry stretching the whole table for everyone else's sake.
+
+A column the user has widened or narrowed by hand (see
+`ecim-widen-column') is left at its current width instead: a
+manual resize should survive the next refresh, not be recomputed
+away by it."
   (let* ((base ecim--base-column-format)
          (caps ecim--column-caps)
+         (previous tabulated-list-format)
          (format (copy-sequence base)))
     (dotimes (col (length format))
       (let* ((desc (aref format col))
-             (cap (and caps (< col (length caps)) (aref caps col)))
-             (width (max (nth 1 desc) (string-width (nth 0 desc)))))
-        (dolist (entry entries)
-          (let ((cell (aref (cadr entry) col)))
-            (when (stringp cell)
-              (setq width (max width (string-width (substring-no-properties cell)))))))
-        (when cap (setq width (min width cap)))
-        (aset format col (cons (car desc) (cons width (cddr desc))))))
+             (name (car desc)))
+        (if (member name ecim--user-sized-columns)
+            (aset format col (aref previous col))
+          (let ((cap (and caps (< col (length caps)) (aref caps col)))
+                (width (max (nth 1 desc) (string-width name))))
+            (dolist (entry entries)
+              (let ((cell (aref (cadr entry) col)))
+                (when (stringp cell)
+                  (setq width (max width (string-width (substring-no-properties cell)))))))
+            (when cap (setq width (min width cap)))
+            (aset format col (cons name (cons width (cddr desc))))))))
     (setq tabulated-list-format format)
     (tabulated-list-init-header)))
 

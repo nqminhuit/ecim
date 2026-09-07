@@ -308,6 +308,45 @@ grow columns across refreshes and never shrink them."
       (ecim--fill (current-buffer) (list (ecim-runs--entry narrow)))
       (should (= (nth 1 (aref tabulated-list-format 1)) 22)))))
 
+(defun ecim-tests--goto-column (name)
+  "Move point to the start of the column called NAME on the first line."
+  (goto-char (point-min))
+  (while (not (equal (get-text-property (point) 'tabulated-list-column-name) name))
+    (tabulated-list-next-column)))
+
+(ert-deftest ecim-widen-column-survives-a-refresh ()
+  "A manual `}' must not be undone by the next refresh.
+`ecim--size-columns' otherwise recomputes every column from the
+mode's original widths on each fill, which used to silently
+discard whatever the user had just resized by hand."
+  (with-temp-buffer
+    (ecim-runs-mode)
+    (let ((entry (ecim-runs--entry
+                  (ecim-run-create :id 1 :number 1 :name "CI"
+                                   :status 'completed :conclusion 'success))))
+      (ecim--fill (current-buffer) (list entry))
+      (should (= (nth 1 (aref tabulated-list-format 1)) 22))
+      (ecim-tests--goto-column "Workflow")
+      (ecim-widen-column 15)
+      (should (= (nth 1 (aref tabulated-list-format 1)) 37))
+      (ecim--fill (current-buffer) (list entry))
+      (should (= (nth 1 (aref tabulated-list-format 1)) 37))
+      ;; Every other column is still sized from the data as normal.
+      (should (= (nth 1 (aref tabulated-list-format 3)) 20)))))
+
+(ert-deftest ecim-narrow-column-also-survives-a-refresh ()
+  (with-temp-buffer
+    (ecim-runs-mode)
+    (let ((entry (ecim-runs--entry
+                  (ecim-run-create :id 1 :number 1 :name "CI"
+                                   :status 'completed :conclusion 'success))))
+      (ecim--fill (current-buffer) (list entry))
+      (ecim-tests--goto-column "Workflow")
+      (ecim-narrow-column 5)
+      (should (= (nth 1 (aref tabulated-list-format 1)) 17))
+      (ecim--fill (current-buffer) (list entry))
+      (should (= (nth 1 (aref tabulated-list-format 1)) 17)))))
+
 ;;;; HTTP helpers
 
 (ert-deftest ecim-github-next-page-from-link-header ()
