@@ -36,6 +36,18 @@ that has not finished, so idle buffers stop polling by themselves."
 (defvar-local ecim--status-line nil
   "Extra text shown in the header line.")
 
+(defvar-local ecim--column-caps nil
+  "Vector parallel to `tabulated-list-format' bounding column growth.
+A number caps how wide that column may grow to fit its widest
+cell; nil leaves it unbounded.  Set by a mode right after it sets
+`tabulated-list-format', in modes whose columns should widen to
+fit their data instead of always truncating to a fixed width.")
+
+(defvar-local ecim--base-column-format nil
+  "`tabulated-list-format' as the mode originally defined it.
+Captured once, so each fill computes widths from the same
+baseline rather than compounding onto an already-widened one.")
+
 (defvar ecim-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'ecim-refresh)
@@ -112,10 +124,38 @@ Callers that need the buffer itself in the refresh closure set
       (ecim--update-status))
     buffer))
 
+(defun ecim--size-columns (entries)
+  "Widen the current buffer's columns to fit ENTRIES.
+Each column in `ecim--base-column-format' grows to its widest
+cell among ENTRIES, capped by the matching element of
+`ecim--column-caps'.  A column with no cap set still cannot grow
+past a cell that overflows it: `tabulated-list-print-col' truncates
+with an ellipsis on its own, so a cap only guards against one huge
+entry stretching the whole table for everyone else's sake."
+  (let* ((base ecim--base-column-format)
+         (caps ecim--column-caps)
+         (format (copy-sequence base)))
+    (dotimes (col (length format))
+      (let* ((desc (aref format col))
+             (cap (and caps (< col (length caps)) (aref caps col)))
+             (width (max (nth 1 desc) (string-width (nth 0 desc)))))
+        (dolist (entry entries)
+          (let ((cell (aref (cadr entry) col)))
+            (when (stringp cell)
+              (setq width (max width (string-width (substring-no-properties cell)))))))
+        (when cap (setq width (min width cap)))
+        (aset format col (cons (car desc) (cons width (cddr desc))))))
+    (setq tabulated-list-format format)
+    (tabulated-list-init-header)))
+
 (defun ecim--fill (buffer entries &optional status)
   "Display ENTRIES in BUFFER and note STATUS in its header line."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
+      (unless ecim--base-column-format
+        (setq ecim--base-column-format (copy-sequence tabulated-list-format)))
+      (when ecim--column-caps
+        (ecim--size-columns entries))
       (setq ecim--loading nil
             ecim--status-line status
             tabulated-list-entries entries)

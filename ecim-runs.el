@@ -41,6 +41,10 @@
   (setq tabulated-list-format
         [("" 2 nil) ("Workflow" 22 t) ("Run" 7 nil) ("Branch" 20 t)
          ("Event" 12 t) ("Actor" 13 t) ("Age" 10 nil)])
+  ;; Widen the free-text columns to fit what is actually shown, instead
+  ;; of always truncating to these defaults; cap them so one absurdly
+  ;; long name cannot stretch the whole table.
+  (setq ecim--column-caps [nil 50 nil 40 24 24 nil])
   (setq ecim--auto-refresh-predicate #'ecim-runs--active-p)
   (tabulated-list-init-header))
 
@@ -53,11 +57,11 @@
   "Return a `tabulated-list-entries' element for RUN."
   (list run
         (vector (ecim--status-symbol (ecim-run-status run) (ecim-run-conclusion run))
-                (ecim--truncate (or (ecim-run-name run) "") 22)
+                (or (ecim-run-name run) "")
                 (format "#%s" (or (ecim-run-number run) "?"))
-                (ecim--truncate (or (ecim-run-branch run) "") 20)
-                (ecim--truncate (or (ecim-run-event run) "") 12)
-                (ecim--truncate (or (ecim-run-actor run) "") 13)
+                (or (ecim-run-branch run) "")
+                (or (ecim-run-event run) "")
+                (or (ecim-run-actor run) "")
                 (if (ecim-run-active-p run)
                     (propertize (symbol-name (ecim-run-status run)) 'face 'ecim-running)
                   (ecim--relative-time (ecim-run-updated-at run))))))
@@ -199,6 +203,7 @@ With a prefix argument FAILED-ONLY, rerun only its failed jobs."
   "Major mode listing the jobs of a workflow run."
   (setq tabulated-list-format
         [("" 2 nil) ("Job" 38 t) ("Status" 14 t) ("Duration" 10 nil) ("Started" 12 nil)])
+  (setq ecim--column-caps [nil 60 nil nil nil])
   (setq ecim--auto-refresh-predicate #'ecim-jobs--active-p)
   (tabulated-list-init-header))
 
@@ -211,7 +216,7 @@ With a prefix argument FAILED-ONLY, rerun only its failed jobs."
   "Return a `tabulated-list-entries' element for JOB."
   (list job
         (vector (ecim--status-symbol (ecim-job-status job) (ecim-job-conclusion job))
-                (ecim--truncate (or (ecim-job-name job) "") 38)
+                (or (ecim-job-name job) "")
                 (ecim--status-string (ecim-job-status job) (ecim-job-conclusion job))
                 (ecim--duration (ecim-job-started-at job) (ecim-job-completed-at job))
                 (ecim--relative-time (ecim-job-started-at job)))))
@@ -279,6 +284,7 @@ With a prefix argument FAILED-ONLY, rerun only its failed jobs."
   "Major mode listing the workflows of a repository."
   (setq tabulated-list-format
         [("Workflow" 32 t) ("State" 12 t) ("File" 40 t)])
+  (setq ecim--column-caps [50 nil 60])
   (tabulated-list-init-header))
 
 (defun ecim-workflows--load (buffer repo)
@@ -295,12 +301,12 @@ With a prefix argument FAILED-ONLY, rerun only its failed jobs."
 (defun ecim-workflows--entry (workflow)
   "Return a `tabulated-list-entries' element for WORKFLOW."
   (list workflow
-        (vector (ecim--truncate (ecim-workflow-name workflow) 32)
+        (vector (ecim-workflow-name workflow)
                 (propertize (symbol-name (or (ecim-workflow-state workflow) 'unknown))
                             'face (if (eq (ecim-workflow-state workflow) 'active)
                                       'ecim-success
                                     'ecim-pending))
-                (ecim--truncate (or (ecim-workflow-path workflow) "") 40))))
+                (or (ecim-workflow-path workflow) ""))))
 
 ;;;###autoload
 (defun ecim-workflows ()

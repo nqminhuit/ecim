@@ -140,13 +140,6 @@ Underscores become hyphens, so a provider spelling such as
   (when (and (stringp string) (not (string-empty-p string)))
     (intern (replace-regexp-in-string "_" "-" (downcase string)))))
 
-(defun ecim--truncate (string width)
-  "Truncate STRING to WIDTH columns, adding an ellipsis when cut."
-  (let ((string (or string "")))
-    (if (<= (string-width string) width)
-        string
-      (truncate-string-to-width string width nil nil t))))
-
 (defun ecim--report-error (err)
   "Report ERR, an error object or string, to the user."
   (message "ECIM: %s"

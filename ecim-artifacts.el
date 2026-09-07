@@ -31,12 +31,13 @@
   "Major mode listing the artifacts of a workflow run."
   (setq tabulated-list-format
         [("Artifact" 34 t) ("Size" 10 t) ("Created" 12 nil) ("Expires" 12 nil)])
+  (setq ecim--column-caps [50 nil nil nil])
   (tabulated-list-init-header))
 
 (defun ecim-artifacts--entry (artifact)
   "Return a `tabulated-list-entries' element for ARTIFACT."
   (list artifact
-        (vector (propertize (ecim--truncate (ecim-artifact-name artifact) 34)
+        (vector (propertize (ecim-artifact-name artifact)
                             'face (when (ecim-artifact-expired artifact) 'ecim-pending))
                 (file-size-human-readable (or (ecim-artifact-size artifact) 0))
                 (ecim--relative-time (ecim-artifact-created-at artifact))

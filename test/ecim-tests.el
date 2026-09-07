@@ -266,9 +266,47 @@ token to every other repository on that host."
   (should (eq (get-text-property 0 'face (ecim--status-symbol 'completed 'failure))
               'ecim-failure)))
 
-(ert-deftest ecim-truncate-adds-ellipsis ()
-  (should (equal (ecim--truncate "short" 10) "short"))
-  (should (= (string-width (ecim--truncate "a very long workflow name" 10)) 10)))
+;;;; Column sizing
+
+(ert-deftest ecim-size-columns-widens-to-fit-data ()
+  "A column grows to its widest cell instead of always truncating."
+  (with-temp-buffer
+    (ecim-runs-mode)
+    (setq ecim--base-column-format (copy-sequence tabulated-list-format))
+    (let* ((branch "feature/a-fairly-descriptive-branch-name")
+           (entries (list (list 'r1 (vector "✓" "CI" "#1" branch "push" "octocat" "2m ago")))))
+      (ecim--size-columns entries)
+      (should (= (nth 1 (aref tabulated-list-format 3)) (string-width branch)))
+      ;; Nothing in this data is wider than the column's own default.
+      (should (= (nth 1 (aref tabulated-list-format 1)) 22)))))
+
+(ert-deftest ecim-size-columns-respects-the-cap ()
+  "One absurdly long name must not stretch the column past its cap.
+`tabulated-list-print-col' still shows it, truncated with its own
+ellipsis at render time."
+  (with-temp-buffer
+    (ecim-runs-mode)
+    (setq ecim--base-column-format (copy-sequence tabulated-list-format))
+    (let* ((long-name (make-string 80 ?x))
+           (entries (list (list 'r1 (vector "✓" long-name "#1" "main" "push" "octocat" "2m")))))
+      (ecim--size-columns entries)
+      (should (= (nth 1 (aref tabulated-list-format 1)) 50)))))
+
+(ert-deftest ecim-fill-recomputes-widths-instead-of-compounding-them ()
+  "A later, narrower refresh must shrink columns back down.
+Sizing from whatever `tabulated-list-format' currently holds,
+rather than from the mode's original definition, would only ever
+grow columns across refreshes and never shrink them."
+  (with-temp-buffer
+    (ecim-runs-mode)
+    (let ((wide (ecim-run-create :id 1 :number 1 :name (make-string 45 ?x)
+                                 :status 'completed :conclusion 'success))
+          (narrow (ecim-run-create :id 2 :number 2 :name "CI"
+                                   :status 'completed :conclusion 'success)))
+      (ecim--fill (current-buffer) (list (ecim-runs--entry wide)))
+      (should (= (nth 1 (aref tabulated-list-format 1)) 45))
+      (ecim--fill (current-buffer) (list (ecim-runs--entry narrow)))
+      (should (= (nth 1 (aref tabulated-list-format 1)) 22)))))
 
 ;;;; HTTP helpers
 
