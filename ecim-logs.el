@@ -32,6 +32,7 @@
     (define-key map (kbd "n") #'ecim-logs-next-step)
     (define-key map (kbd "p") #'ecim-logs-previous-step)
     (define-key map (kbd "w") #'ecim-logs-browse)
+    (define-key map (kbd "?") #'ecim-show-keybindings)
     map)
   "Keymap for `ecim-log-mode'.")
 

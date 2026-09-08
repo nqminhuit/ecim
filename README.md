@@ -55,9 +55,18 @@ W    workflows                /  filter by branch
 g    refresh                  w  open in a browser
 ```
 
+Press `?` in any ECIM buffer for a short summary of just that buffer's own keybindings; `C-h m`
+still shows the complete reference, including everything inherited from `tabulated-list-mode`.
+
+If [Evil](https://github.com/emacs-evil/evil) is loaded — including through `evil-collection`, which
+installs its own bindings for `tabulated-list-mode` and so also applies to ECIM's own list-derived
+views — ECIM reclaims its own keys so they behave as above instead of falling through to Vim
+vocabulary. This has no effect, and no dependency on Evil, when Evil is absent. Set
+`ecim-evil-integration` to `nil` to opt out.
+
 Useful settings: `ecim-auto-refresh-interval` (off by default; when set, a buffer refreshes itself
 only while something in it is still running), `ecim-artifact-directory`, `ecim-runs-limit`,
-`ecim-logs-strip-timestamps`.
+`ecim-logs-strip-timestamps`, `ecim-evil-integration`.
 
 ## Repository and Account Detection
 

@@ -13,6 +13,12 @@
 (require 'ecim-core)
 (require 'ecim-provider)
 (require 'ecim-repository)
+;; `M-x ecim' autoloads a view (e.g. `ecim-runs.el'), not the package,
+;; so `ecim.el' is never reached on a first invocation -- exactly the
+;; bug once found in `ecim-provider-for-repo'.  This file is the seam
+;; every view requires, so it is where Evil integration has to be
+;; wired up for it to reliably apply.
+(require 'ecim-evil)
 
 (defcustom ecim-auto-refresh-interval nil
   "Seconds between automatic refreshes, or nil to refresh only on demand.
@@ -61,6 +67,7 @@ rather than being silently undone by it.")
     (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "{") #'ecim-narrow-column)
     (define-key map (kbd "}") #'ecim-widen-column)
+    (define-key map (kbd "?") #'ecim-show-keybindings)
     map)
   "Keymap shared by all ECIM listings.")
 
@@ -141,6 +148,36 @@ built-in itself, via `ecim--note-manual-column-resize'."
 See `ecim-widen-column'."
   (interactive "p")
   (tabulated-list-narrow-current-column n))
+
+(defun ecim--keymap-entries (map)
+  "Return an alist of (KEY-DESCRIPTION . COMMAND) for MAP's own bindings."
+  (mapcar (lambda (entry) (cons (key-description (vector (car entry))) (cdr entry)))
+          (ecim--keymap-own-bindings map)))
+
+(defun ecim-show-keybindings ()
+  "Show a short summary of this buffer's own ECIM keybindings.
+`C-h m' documents the complete keymap, including everything
+inherited from `tabulated-list-mode', `special-mode' and any
+minor mode; this shows only what ECIM itself binds here."
+  (interactive)
+  (let* ((maps (if (derived-mode-p 'ecim-list-mode)
+                   (list (current-local-map) ecim-list-mode-map)
+                 (list (current-local-map))))
+         ;; Captured before `with-help-window' switches `current-buffer'
+         ;; to *ecim-keys*: its callback runs inside a `with-current-buffer'
+         ;; on the help buffer, so `current-local-map'/`mode-name' read
+         ;; from inside it would describe *ecim-keys*, not this buffer.
+         (title mode-name)
+         (entries (sort (delete-dups (apply #'append (mapcar #'ecim--keymap-entries maps)))
+                        (lambda (a b) (string< (car a) (car b)))))
+         (width (apply #'max 3 (mapcar (lambda (e) (length (car e))) entries))))
+    (with-help-window "*ecim-keys*"
+      (princ (format "%s keybindings\n\n" title))
+      (dolist (entry entries)
+        (let ((key (car entry)))
+          (princ (format "  %s%s  %s\n" key
+                        (make-string (- width (length key)) ?\s)
+                        (car (split-string (or (documentation (cdr entry)) "") "\n")))))))))
 
 ;;;; Buffers
 

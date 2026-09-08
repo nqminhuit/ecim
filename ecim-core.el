@@ -161,5 +161,23 @@ Used to move prompts out of process filters, where entering a
 recursive edit is unsafe."
   (apply #'run-at-time 0 nil function args))
 
+(defun ecim--keymap-own-bindings (map)
+  "Return an alist of (EVENT . COMMAND) for MAP's own bindings.
+Unlike `map-keymap', does not walk anything reached only through
+`keymap-parent': that chain typically reaches all the way to
+`global-map', which is not what \"this mode's own bindings\" means.
+The parent is detached only for the duration of the walk."
+  (let ((parent (keymap-parent map))
+        entries)
+    (unwind-protect
+        (progn
+          (set-keymap-parent map nil)
+          (map-keymap (lambda (event def)
+                        (when (and (or (characterp event) (symbolp event)) (commandp def))
+                          (push (cons event def) entries)))
+                      map))
+      (set-keymap-parent map parent))
+    (nreverse entries)))
+
 (provide 'ecim-core)
 ;;; ecim-core.el ends here

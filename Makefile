@@ -1,7 +1,7 @@
 EMACS ?= emacs
 BATCH  = $(EMACS) -Q --batch -L . -L test
 SOURCES = ecim-core.el ecim-repository.el ecim-auth.el ecim-provider.el \
-          ecim-github.el ecim-ui.el ecim-logs.el ecim-artifacts.el \
+          ecim-github.el ecim-evil.el ecim-ui.el ecim-logs.el ecim-artifacts.el \
           ecim-runs.el ecim.el
 
 .PHONY: all compile compile-strict test lint clean

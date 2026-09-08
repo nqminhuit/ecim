@@ -49,6 +49,7 @@
 (require 'ecim-provider)
 (require 'ecim-github)
 (require 'ecim-ui)
+(require 'ecim-evil)
 (require 'ecim-runs)
 (require 'ecim-logs)
 (require 'ecim-artifacts)

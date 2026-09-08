@@ -123,8 +123,87 @@ first request."
 (ert-deftest ecim-every-file-is-loadable-on-its-own ()
   "Each file must pull in what it uses, so load order cannot matter."
   (dolist (feature '(ecim-core ecim-repository ecim-auth ecim-provider
-                     ecim-github ecim-ui ecim-logs ecim-artifacts ecim-runs ecim))
+                     ecim-github ecim-evil ecim-ui ecim-logs ecim-artifacts
+                     ecim-runs ecim))
     (should (eq 0 (ecim-tests--in-fresh-emacs `(require ',feature))))))
+
+;;;; Keymap introspection and Evil integration
+;;
+;; ecim-evil.el is exercised without a real `evil' package: its whole
+;; body sits behind `with-eval-after-load', so nothing in it ever runs
+;; unless something else loads `evil' first -- the mirroring logic
+;; itself is tested directly instead.
+
+(ert-deftest ecim-keymap-own-bindings-excludes-the-parent-chain ()
+  "`map-keymap' walks the full `keymap-parent' chain by default, all
+the way to `global-map'; \"this mode's own bindings\" must not."
+  (let* ((parent (make-sparse-keymap))
+         (child (make-sparse-keymap)))
+    (define-key parent (kbd "g") #'ignore)
+    (define-key child (kbd "a") #'ecim-refresh)
+    (set-keymap-parent child parent)
+    (let ((entries (ecim--keymap-own-bindings child)))
+      (should (equal entries (list (cons ?a #'ecim-refresh))))
+      ;; The temporary detach used to isolate the walk must not leak.
+      (should (eq (keymap-parent child) parent)))))
+
+(ert-deftest ecim-keymap-own-bindings-ignores-non-commands ()
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'ecim-refresh)
+    (define-key map (kbd "b") 'some-prefix-keymap-placeholder)
+    (should (equal (ecim--keymap-own-bindings map) (list (cons ?a #'ecim-refresh))))))
+
+(ert-deftest ecim-keymap-entries-formats-key-descriptions ()
+  "`map-keymap' does not guarantee traversal order, so compare as a set."
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'ecim-runs-visit)
+    (define-key map (kbd "a") #'ecim-runs-artifacts)
+    (should (equal (sort (ecim--keymap-entries map) (lambda (a b) (string< (car a) (car b))))
+                   (list (cons "RET" #'ecim-runs-visit) (cons "a" #'ecim-runs-artifacts))))))
+
+(ert-deftest ecim-show-keybindings-covers-the-mode-and-the-shared-map ()
+  "Must include both the view's own bindings and the shared
+`ecim-list-mode-map' ones, and nothing from `tabulated-list-mode'
+or `special-mode' beneath them."
+  (with-temp-buffer
+    (ecim-runs-mode)
+    (call-interactively #'ecim-show-keybindings))
+  (unwind-protect
+      (with-current-buffer "*ecim-keys*"
+        (let ((text (buffer-string)))
+          ;; The view's own binding, described via RET's own docstring.
+          (should (string-match-p "RET.*jobs of the run" text))
+          ;; The shared ecim-list-mode-map binding.
+          (should (string-match-p "g.*[Rr]eload" text))
+          ;; Nothing inherited from tabulated-list-mode/special-mode/global-map.
+          (should-not (string-match-p "digit-argument" text))
+          (should-not (string-match-p "mouse-select-window" text))))
+    (kill-buffer "*ecim-keys*")))
+
+(ert-deftest ecim-evil-mirror-keymap-reapplies-own-bindings-only ()
+  (let ((map (make-sparse-keymap))
+        (parent (make-sparse-keymap))
+        calls)
+    (define-key parent (kbd "g") #'ignore)
+    (define-key map (kbd "a") #'ecim-runs-artifacts)
+    (define-key map (kbd "RET") #'ecim-runs-visit)
+    (set-keymap-parent map parent)
+    (cl-letf (((symbol-function 'evil-local-set-key)
+               (lambda (state key def) (push (list state key def) calls))))
+      (ecim-evil--mirror-keymap map))
+    (should (= (length calls) 2))
+    (should (seq-every-p (lambda (c) (eq (car c) 'normal)) calls))
+    (should (member (list 'normal (vector ?a) #'ecim-runs-artifacts) calls))
+    (should (member (list 'normal (vector ?\r) #'ecim-runs-visit) calls))))
+
+(ert-deftest ecim-evil-mirror-respects-the-integration-toggle ()
+  (let ((map (make-sparse-keymap)) calls)
+    (define-key map (kbd "a") #'ecim-runs-artifacts)
+    (cl-letf (((symbol-function 'evil-local-set-key)
+               (lambda (&rest args) (push args calls)))
+              (ecim-evil-integration nil))
+      (ecim-evil--mirror map))
+    (should (null calls))))
 
 ;;;; Authentication
 
