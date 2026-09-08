@@ -4,7 +4,7 @@
 
 ;; Author: ECIM contributors
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "29.4"))
 ;; Keywords: tools, vc, processes
 ;; URL: https://github.com/nqminhuit/ecim
 

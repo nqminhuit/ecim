@@ -24,7 +24,8 @@ The UI should feel native to Emacs rather than simply wrapping the GitHub web in
 
 ## Requirements
 
-ECIM needs Emacs 27.1 or later and nothing else: no external packages, and no command line tools.
+ECIM needs Emacs 29.4 or later and nothing else: no external packages, and no command line tools.
+Supported versions are 29.4, 30.2, 31.1 and the development snapshot.
 
 Two conditions must hold, and ECIM reports each as an authentication error rather than failing
 obscurely in the middle of a request:
@@ -273,7 +274,8 @@ emacs -Q --batch -L . -L test -l ert -l test/ecim-tests.el \
 The tests never touch the network: stub `ecim-github--fetch` rather than adding a test that needs
 credentials.
 
-`.github/workflows/ci.yml` runs `compile` and `test` across Emacs 27.2 to 30.1 — which is what
-actually checks the Emacs 27.1 floor claimed in the package headers — and enforces `compile-strict`
-and `lint` on one version, since older byte-compilers warn about different things. It can also be
-run by hand, which is a convenient way to exercise ECIM against its own CI.
+`.github/workflows/ci.yml` runs `compile` and `test` across Emacs 29.4, 30.2, 31.1 and the
+development snapshot — which is what actually checks the floor claimed in the package headers —
+and enforces `compile-strict` and `lint` on 31.1 only, since older byte-compilers warn about
+different things. It can also be run by hand, which is a convenient way to exercise ECIM against
+its own CI.
