@@ -171,13 +171,20 @@ minor mode; this shows only what ECIM itself binds here."
          (entries (sort (delete-dups (apply #'append (mapcar #'ecim--keymap-entries maps)))
                         (lambda (a b) (string< (car a) (car b)))))
          (width (apply #'max 3 (mapcar (lambda (e) (length (car e))) entries))))
-    (with-help-window "*ecim-keys*"
-      (princ (format "%s keybindings\n\n" title))
-      (dolist (entry entries)
-        (let ((key (car entry)))
-          (princ (format "  %s%s  %s\n" key
-                        (make-string (- width (length key)) ?\s)
-                        (car (split-string (or (documentation (cdr entry)) "") "\n")))))))))
+    ;; `display-buffer-overriding-action' takes priority over
+    ;; `with-help-window''s own display action, so the cheat sheet gets a
+    ;; small bottom popup instead of the usual half-height help window.
+    (let ((display-buffer-overriding-action
+           '((display-buffer-in-side-window)
+             (side . bottom)
+             (window-height . 0.25))))
+      (with-help-window "*ecim-keys*"
+        (princ (format "%s keybindings\n\n" title))
+        (dolist (entry entries)
+          (let ((key (car entry)))
+            (princ (format "  %s%s  %s\n" key
+                          (make-string (- width (length key)) ?\s)
+                          (car (split-string (or (documentation (cdr entry)) "") "\n"))))))))))
 
 ;;;; Buffers
 
