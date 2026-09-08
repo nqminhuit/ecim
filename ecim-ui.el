@@ -110,22 +110,37 @@ for the sortable column names."
         (browse-url url)
       (user-error "This entry has no web page"))))
 
+(defun ecim--note-manual-column-resize (&rest _)
+  "Remember that the column at point in an ECIM buffer was resized.
+Advice on `tabulated-list-widen-current-column', so the resize is
+recorded no matter which keymap called it.  A key binding in
+`ecim-list-mode-map' is not enough on its own: a modal-editing
+package such as Evil (through `evil-collection') installs its own
+keymap for `tabulated-list-mode' at higher precedence than any
+major mode's own map, and its `{'/`}' call the built-in directly,
+bypassing `ecim-widen-column'/`ecim-narrow-column' entirely."
+  (when (derived-mode-p 'ecim-list-mode)
+    (let ((name (get-text-property (point) 'tabulated-list-column-name)))
+      (when (and name (not (member name ecim--user-sized-columns)))
+        (push name ecim--user-sized-columns)))))
+
+(advice-add 'tabulated-list-widen-current-column :before
+            #'ecim--note-manual-column-resize)
+
 (defun ecim-widen-column (&optional n)
-  "Widen the column at point by N characters, and remember the choice.
-Wraps `tabulated-list-widen-current-column'; once a column is
-resized this way, `ecim--size-columns' leaves it alone on later
-refreshes instead of fitting it to the data again."
+  "Widen the column at point by N characters.
+A thin alias for `tabulated-list-widen-current-column', kept so
+`ecim-list-mode-map' names a recognizably ECIM command; the actual
+resize and the bookkeeping that makes it stick both live on the
+built-in itself, via `ecim--note-manual-column-resize'."
   (interactive "p")
-  (let ((name (get-text-property (point) 'tabulated-list-column-name)))
-    (tabulated-list-widen-current-column n)
-    (when (and name (not (member name ecim--user-sized-columns)))
-      (push name ecim--user-sized-columns))))
+  (tabulated-list-widen-current-column n))
 
 (defun ecim-narrow-column (&optional n)
   "Narrow the column at point by N characters.
 See `ecim-widen-column'."
   (interactive "p")
-  (ecim-widen-column (- n)))
+  (tabulated-list-narrow-current-column n))
 
 ;;;; Buffers
 

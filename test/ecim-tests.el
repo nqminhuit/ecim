@@ -347,6 +347,39 @@ discard whatever the user had just resized by hand."
       (ecim--fill (current-buffer) (list entry))
       (should (= (nth 1 (aref tabulated-list-format 1)) 17)))))
 
+(ert-deftest ecim-manual-resize-survives-a-refresh-via-the-raw-builtin ()
+  "The resize must be remembered even when nothing of ECIM's own
+runs, only the built-in itself. A modal-editing package such as
+Evil (via `evil-collection') installs its own keymap for
+`tabulated-list-mode' at higher precedence than any major mode's
+map, and its `{'/`}' call `tabulated-list-widen-current-column'
+directly -- entirely bypassing `ecim-widen-column'."
+  (with-temp-buffer
+    (ecim-runs-mode)
+    (let ((entry (ecim-runs--entry
+                  (ecim-run-create :id 1 :number 1 :name "CI"
+                                   :status 'completed :conclusion 'success))))
+      (ecim--fill (current-buffer) (list entry))
+      (ecim-tests--goto-column "Workflow")
+      (tabulated-list-widen-current-column 15)
+      (should (= (nth 1 (aref tabulated-list-format 1)) 37))
+      (ecim--fill (current-buffer) (list entry))
+      (should (= (nth 1 (aref tabulated-list-format 1)) 37)))))
+
+(ert-deftest ecim-manual-resize-advice-ignores-unrelated-buffers ()
+  "The advice must be a no-op outside ECIM's own list buffers, so it
+cannot affect `list-processes', `package-menu-mode' and the like."
+  (with-temp-buffer
+    (tabulated-list-mode)
+    (setq tabulated-list-format [("A" 5 nil) ("B" 5 nil)])
+    (tabulated-list-init-header)
+    (setq tabulated-list-entries (list (list 'x (vector "aa" "bb"))))
+    (tabulated-list-print)
+    (goto-char (point-min))
+    (should-not (local-variable-p 'ecim--user-sized-columns))
+    (tabulated-list-widen-current-column 3)
+    (should-not (local-variable-p 'ecim--user-sized-columns))))
+
 ;;;; HTTP helpers
 
 (ert-deftest ecim-github-next-page-from-link-header ()
